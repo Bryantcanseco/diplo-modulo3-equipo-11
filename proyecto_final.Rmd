@@ -1,0 +1,25 @@
+---
+title: "Proyecto final módulo 3"
+author: "Equipo - 11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Integrantes:
+
++ Integrante 1. Rol: Bryant Canseco Hernández
++ Integrante 2. Rol: Diego Gómez Santiago
++ Integrante 3. Rol: Fernando Alvarado Palacios
+
+```{r}
+library(DBI)
+library(dbplyr)
+library(RSQLite)
+
+conn <- DBI::dbConnect(RSQLite::SQLite(), "baseball.db")
+```
+
+
