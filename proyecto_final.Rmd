@@ -15,11 +15,20 @@ knitr::opts_chunk$set(echo = TRUE)
 + Integrante 3. Rol: Fernando Alvarado Palacios
 
 ```{r}
+# Cargamos las librerías necesarias para conectarnos y manipular la base de datos
+library(dplyr)
+library(ggplot2)
 library(DBI)
 library(dbplyr)
 library(RSQLite)
+library(tidyr)
+library(lubridate)
+library(stringr)
+library(knitr)
+library(visdat)
 library(skimr)
 library(DiagrammeR)
+
 
 
 
@@ -32,6 +41,16 @@ conn <- DBI::dbConnect(RSQLite::SQLite(), "baseball.db")
 
 
 ```{r}
+# Conexión a la base de datos
+conn <- dbConnect(SQLite(), "baseball.db")
+
+# Listar tablas de la base
+tablas <- dbListTables(conn)
+
+# Crear objetos R para cada tabla
+for (tabla in tablas) {
+  assign(tabla, dbReadTable(conn, tabla))
+}
 # Resumen de variables para cada tabla usando skim()
 skim(bateo)
 skim(escuelas)
@@ -68,4 +87,451 @@ Se analizaron 8 tablas de baseball.db usando skimr, mostrando que en general las
 El diagrama de relaciones muestra que nombres es la tabla central, conectando con desempeño (bateo, pitcheo, field), salarios (salarios), formación (escuelasJugadores) y logros (salonFama).
 
 No se detectaron duplicados importantes en playerID, y las tablas permiten análisis posteriores con poca limpieza adicional.
+
+
+
+
+
+
+
+```{r objetos_tablas}
+# Leemos cada tabla de la base de datos y creamos un objeto en R con el mismo nombre
+for (tabla in tablas) {
+  assign(tabla, dbReadTable(conn, tabla))
+}
+
+# Inspeccionamos la estructura de la tabla 'nombres'
+head(nombres)
+str(nombres)
+```
+
+```{r resumen-tablas, message=FALSE, warning=FALSE}
+# Creamos una tabla resumen con el número de filas por cada tabla
+resumen_tablas <- tibble::tibble(
+  nombre_tabla = tablas,
+  num_filas = sapply(tablas, function(t) nrow(get(t)))
+)
+
+# Mostramos la tabla 
+knitr::kable(resumen_tablas, caption = "Resumen de tablas en la base de datos 'baseball.db'")
+```
+
+## Introducción al Análisis Exploratorio (EDA)
+En esta sección realizamos un análisis exploratorio del conjunto de datos de béisbol, con el objetivo de responder diversas preguntas relacionadas con la duración de carrera, rendimiento y salarios de los jugadores. Este análisis considera información contenida en múltiples tablas como bateo, pitcheo, salarios, salonFama, entre otras, provenientes de la base de datos baseball.db.
+
+#Pregunta 1: ¿Cuál es la duración promedio de la carrera de un jugador de béisbol profesional según su posición?
+
+Para responder esta pregunta, necesitaremos utilizar principalmente las tablas nombres (que contiene las posiciones) y bateo (que contiene información anual del jugador). El procedimiento que seguimos fue el siguiente:
+
+```{r}
+# Calculamos la duración de la carrera de cada jugador
+carrera_jugadores <- bateo |>
+  group_by(playerID) |>
+  summarise(
+    anio_inicio = min(yearID, na.rm = TRUE),
+    anio_fin = max(yearID, na.rm = TRUE),
+    duracion = anio_fin - anio_inicio + 1
+  )
+
+# Obtenemos la posición más común (principal) para cada jugador desde la tabla de field
+posicion_jugador <- field |>
+  group_by(playerID, POS) |>
+  summarise(total_partidos = sum(G, na.rm = TRUE), .groups = "drop") |>
+  group_by(playerID) |>
+  slice_max(order_by = total_partidos, n = 1, with_ties = FALSE) |>
+  select(playerID, POS)
+
+# Unimos la duración con la posición
+jugadores_duracion_pos <- carrera_jugadores |>
+  inner_join(posicion_jugador, by = "playerID")
+
+# Calculamos el promedio de duración por posición
+duracion_posicion <- jugadores_duracion_pos |>
+  group_by(POS) |>
+  summarise(
+    promedio_duracion = mean(duracion, na.rm = TRUE),
+    conteo_jugadores = n()
+  )
+
+# Ahora sí, generamos el gráfico
+ggplot(duracion_posicion, aes(x = reorder(POS, promedio_duracion), y = promedio_duracion, fill = POS)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = round(promedio_duracion, 2)), vjust = -0.5, size = 4.2, fontface = "bold") +
+  ylim(0, 7) +  # ← Aumentamos el límite superior del eje Y
+  labs(
+    title = "Duración Promedio de la Carrera por Posición",
+    subtitle = "Jugadores profesionales de béisbol según posición registrada en fielding",
+    x = "Posición",
+    y = "Duración promedio (años)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(face = "bold")
+  )
+
+
+
+# Mostramos la tabla final
+knitr::kable(duracion_posicion, caption = "Duración promedio de la carrera según posición")
+
+```
+Para responder esta pregunta, cruzamos la información de los años de actividad de cada jugador con su posición más frecuente en el campo. Calculamos la duración de carrera como la diferencia entre el primer y último año registrado en la tabla bateo, y asignamos la posición principal con base en el mayor número de juegos disputados según la tabla field.
+
+Los resultados muestran que:
+
+-La posición de shortstop (SS) tiene la duración promedio más alta con 6.31 años en activo.
+-Le siguen los catchers (C) y los first basemen (1B) con duraciones similares, ligeramente por encima de los 6.2 años.
+-En contraste, los pitchers (P), aunque representan la mayor cantidad de jugadores en la base de datos (9,733 observaciones), tienen la duración promedio más baja con 5.36 años.
+
+Esto puede explicarse por el desgaste físico más alto que enfrentan los lanzadores y la especialización que exige su rol, lo que puede acortar sus trayectorias comparado con otras posiciones de campo.
+
+Además, observamos que los outfielders (OF) —que agrupan varias posiciones externas— presentan una duración promedio ligeramente inferior, lo cual puede deberse a que este grupo contiene una mezcla más diversa de trayectorias y rotaciones de jugadores.
+
+
+#Pregunta 2: ¿Cómo se comparan los promedios de bateo entre jugadores que asistieron a la universidad y los que no?
+
+```{r}
+# Unimos la tabla de bateo con escuelasJugadores para saber qué jugadores fueron a la universidad
+bateo_universidad <- bateo |>
+  left_join(
+    escuelasJugadores |> distinct(playerID) |> mutate(asistio_uni = TRUE),
+    by = "playerID"
+  ) |>
+  mutate(asistio_uni = ifelse(is.na(asistio_uni), FALSE, TRUE))
+
+# Calculamos el promedio de bateo (BA = H / AB) para cada jugador
+promedios_jugador <- bateo_universidad |>
+  group_by(playerID, asistio_uni) |>
+  summarise(
+    H = sum(H, na.rm = TRUE),
+    AB = sum(AB, na.rm = TRUE),
+    promedio_bateo = ifelse(AB > 0, H / AB, NA_real_),
+    .groups = "drop"
+  ) |>
+  filter(!is.na(promedio_bateo))
+
+# Resumen de estadísticas por grupo
+resumen_bateo <- promedios_jugador |>
+  group_by(asistio_uni) |>
+  summarise(
+    promedio_general = mean(promedio_bateo),
+    mediana = median(promedio_bateo),
+    sd = sd(promedio_bateo),
+    n = n()
+  )
+
+# Visualización comparativa
+ggplot(promedios_jugador, aes(x = as.factor(asistio_uni), y = promedio_bateo, fill = as.factor(asistio_uni))) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Comparación del promedio de bateo",
+    subtitle = "Según asistencia universitaria",
+    x = "¿Asistió a la universidad?",
+    y = "Promedio de bateo",
+    fill = "Asistencia"
+  ) +
+  scale_fill_manual(values = c("#999999", "#66CC66"), labels = c("No", "Sí")) +
+  scale_x_discrete(labels = c("No", "Sí")) +
+  theme_minimal(base_size = 13) +
+  theme(plot.title = element_text(face = "bold"))
+
+# Mostramos la tabla resumen
+resumen_bateo |> knitr::kable(caption = "Promedio de bateo por grupo")
+
+```
+#Conclusiones: Comparación del promedio de bateo según asistencia universitaria
+Con base en el análisis realizado, se observa que la diferencia en el promedio de bateo entre los jugadores que asistieron a la universidad y aquellos que no lo hicieron es mínima y no significativa. El promedio general de bateo para los jugadores sin estudios universitarios es de aproximadamente 0.191, mientras que para quienes sí asistieron es de 0.184. Asimismo, la mediana del promedio de bateo es apenas más alta para el grupo sin estudios universitarios (0.213 frente a 0.208).
+
+El gráfico de caja confirma que ambas distribuciones son bastante similares en forma y dispersión, presentando valores atípicos altos en ambos casos. La desviación estándar es levemente mayor en los jugadores con estudios universitarios, lo cual indica una mayor variabilidad en su desempeño, aunque no necesariamente una diferencia sustancial.
+
+Por lo tanto, no se evidencia una ventaja clara en términos de promedio de bateo asociada a la asistencia universitaria. Ambos grupos presentan desempeños muy parecidos, por lo que este factor no parece ser determinante en el rendimiento ofensivo medido por el promedio de bateo.
+
+
+#Pregunta 3: ¿Cuál es la duración promedio de la carrera de un jugador de béisbol profesional según su posición?
+
+```{r}
+# Unimos la duración de la carrera (calculada previamente) con la información salarial
+# Esto nos permitirá relacionar cuánto duró su carrera con cuánto ganaron
+salario_duracion <- carrera_jugadores |> 
+  inner_join(salarios, by = "playerID") |> 
+  group_by(playerID, duracion) |> 
+  summarise(
+    salario_total = sum(salary, na.rm = TRUE),         # Suma total de salarios por jugador
+    salario_promedio = mean(salary, na.rm = TRUE),     # Promedio salarial anual
+    .groups = "drop"
+  )
+
+# Visualizamos si hay una relación entre la duración de la carrera y el salario total acumulado
+ggplot(salario_duracion, aes(x = duracion, y = salario_total)) +
+  geom_point(alpha = 0.4, size = 2, color = "#2C7BB6") +     # Puntos con transparencia
+  geom_smooth(method = "lm", se = FALSE, color = "#D7191C") + # Línea de tendencia (modelo lineal)
+  labs(
+    title = "Relación entre duración de la carrera y salario total",
+    subtitle = "Jugadores de béisbol con información salarial disponible",
+    x = "Duración de la carrera (años)",
+    y = "Salario total acumulado (USD)"
+  ) +
+  theme_minimal(base_size = 13)
+
+# Calculamos la correlación entre los años de carrera y el salario acumulado
+# Esto nos dirá si existe una asociación lineal entre ambas variables
+cor.test(salario_duracion$duracion, salario_duracion$salario_total, method = "pearson")
+
+```
+
+#Conclusiones sobre la relación entre duración de la carrera y salario total
+Se observa una tendencia creciente en el gráfico: los jugadores con carreras más largas tienden a acumular mayores ingresos totales a lo largo del tiempo. Esto se confirma visualmente mediante la línea de ajuste lineal (geom_smooth()), que tiene una pendiente positiva.
+
+El coeficiente de correlación de Pearson entre la duración de la carrera y el salario total acumulado es de aproximadamente 0.51, lo que indica una correlación moderada y positiva entre ambas variables. En otras palabras, existe una relación directa: a mayor duración de carrera, mayor es el salario acumulado.
+
+El valor de p < 2.2e-16 confirma que esta correlación es estadísticamente significativa, es decir, es extremadamente improbable que esta relación se deba al azar.
+
+El intervalo de confianza del 95% para la correlación se encuentra entre 0.49 y 0.53, lo cual respalda la consistencia del resultado.
+
+
+#Pregunta 4: ¿Existe una diferencia significativa en el rendimiento entre jugadores de diferentes conferencias universitarias?
+
+```{r}
+# Librerías
+library(dplyr)
+library(ggplot2)
+
+# 1. Unión de bateo con la liga (renombramos para evitar el conflicto)
+bateo_ligas <- bateo |>
+  inner_join(field |> select(playerID, lgID_field = lgID), by = "playerID") |>
+  filter(!is.na(lgID_field))  # Ahora sí usamos el nuevo nombre
+
+# 2. Promedio de bateo por jugador y liga
+promedios_ligas <- bateo_ligas |>
+  group_by(playerID, lgID_field) |>
+  summarise(
+    H = sum(H, na.rm = TRUE),
+    AB = sum(AB, na.rm = TRUE),
+    promedio_bateo = ifelse(AB > 0, H / AB, NA_real_),
+    .groups = "drop"
+  ) |>
+  filter(!is.na(promedio_bateo))
+
+# 3. Gráfico comparativo
+ggplot(promedios_ligas, aes(x = lgID_field, y = promedio_bateo, fill = lgID_field)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Comparación del promedio de bateo entre ligas",
+    x = "Liga",
+    y = "Promedio de bateo"
+  ) +
+  theme_minimal(base_size = 8) +
+  theme(plot.title = element_text(face = "bold"))
+
+# 4. Prueba ANOVA para detectar diferencias
+anova_ligas <- aov(promedio_bateo ~ lgID_field, data = promedios_ligas)
+summary(anova_ligas)
+
+
+
+```
+
+#Conclusiones:
+Se realizó un análisis ANOVA para evaluar si existían diferencias significativas en el promedio de bateo entre jugadores pertenecientes a distintas ligas (variable lgID_field).
+El resultado del ANOVA indicó diferencias estadísticamente significativas (p < 0.001), lo que sugiere que el rendimiento de bateo promedio varía de manera significativa entre ligas.
+
+La inspección visual del boxplot revela que, si bien la mayoría de las ligas presentan medianas de bateo similares, algunas ligas como PL y NA muestran valores medianos de bateo ligeramente superiores en comparación con ligas como AL y FL.
+Sin embargo, la magnitud de las diferencias no es extrema, indicando que aunque hay un efecto de la liga en el desempeño, este efecto es modesto.
+
+#Pregunta 5: ¿Cómo se relaciona la altura y el peso del jugador con su rendimiento en bateo?
+
+Podemos proceder a:
+-Calcular el promedio de bateo por jugador (H / AB) desde la tabla bateo.
+-Cruzarlo con la tabla nombres, que contiene las columnas height y weight.
+-Visualizar la relación mediante gráficos de dispersión y calcular las correlaciones.
+
+```{r}
+# Calculamos el promedio de bateo por jugador
+promedios_bateo <- bateo |>
+  group_by(playerID) |>
+  summarise(
+    H = sum(H, na.rm = TRUE),
+    AB = sum(AB, na.rm = TRUE),
+    promedio_bateo = ifelse(AB > 0, H / AB, NA_real_),
+    .groups = "drop"
+  ) |>
+  filter(!is.na(promedio_bateo))
+
+# Unimos con la tabla que contiene altura y peso
+bateo_fisico <- promedios_bateo |>
+  inner_join(nombres |> select(playerID, height, weight), by = "playerID") |>
+  filter(!is.na(height), !is.na(weight))
+
+# Relación entre altura y promedio de bateo
+ggplot(bateo_fisico, aes(x = height, y = promedio_bateo)) +
+  geom_point(alpha = 0.4, color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(
+    title = "Relación entre altura y promedio de bateo",
+    x = "Altura (pulgadas)",
+    y = "Promedio de bateo"
+  ) +
+  theme_minimal()
+
+# Relación entre peso y promedio de bateo
+ggplot(bateo_fisico, aes(x = weight, y = promedio_bateo)) +
+  geom_point(alpha = 0.4, color = "darkgreen") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkorange") +
+  labs(
+    title = "Relación entre peso y promedio de bateo",
+    x = "Peso (libras)",
+    y = "Promedio de bateo"
+  ) +
+  theme_minimal()
+
+# Correlaciones
+cor.test(bateo_fisico$height, bateo_fisico$promedio_bateo)
+cor.test(bateo_fisico$weight, bateo_fisico$promedio_bateo)
+
+```
+#Conclusiones:
+Las gráficas y resultados estadísticos muestran que tanto la altura como el peso de los jugadores tienen una relación negativa débil con el promedio de bateo:
+
+Altura vs. promedio de bateo:
+
+La correlación es de aproximadamente -0.165, indicando que a mayor altura, tiende a observarse un ligero descenso en el promedio de bateo.
+
+Aunque la relación es significativa (p < 0.001), su magnitud es baja, lo que sugiere que la altura no es un buen predictor del rendimiento en bateo por sí sola.
+
+Peso vs. promedio de bateo:
+
+La correlación es aún más débil, alrededor de -0.109, también con significancia estadística.
+
+Esto indica que el peso tiene incluso menor asociación con el rendimiento en bateo.
+
+Por lo tanto, a pesar de que ambas características físicas muestran una tendencia negativa en relación al promedio de bateo, los valores de correlación sugieren que estos factores no explican de forma sustancial el desempeño al batear. Otros aspectos como la técnica, experiencia, visión o velocidad de reacción probablemente influyen mucho más en el rendimiento.
+
+#Pregunta 6: ¿Existe alguna tendencia de los salarios en la MLB en los últimos 50 años?
+
+
+```{r}
+# Agrupamos los datos por año y calculamos la media salarial por año
+salarios_por_anio <- salarios |>
+  group_by(yearID) |>
+  summarise(
+    salario_promedio = mean(salary, na.rm = TRUE),
+    jugadores = n()
+  ) |>
+  filter(yearID >= max(yearID) - 50) # Limitamos a los últimos 50 años
+
+# Visualizamos la tendencia de los salarios promedio
+ggplot(salarios_por_anio, aes(x = yearID, y = salario_promedio)) +
+  geom_line(color = "#1f78b4", size = 1.2) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1) +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  labs(
+    title = "Tendencia de los salarios promedio en la MLB",
+    subtitle = "Últimos 50 años según datos disponibles",
+    x = "Año",
+    y = "Salario promedio (USD)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+```{r}
+# Agrupar los salarios promedio por año
+salarios_por_anio <- salarios |>
+  group_by(yearID) |>
+  summarise(salario_promedio = mean(salary, na.rm = TRUE))
+
+# Prueba de correlación de Pearson
+cor.test(salarios_por_anio$yearID, salarios_por_anio$salario_promedio, method = "pearson")
+
+```
+
+
+#Conclusión:
+A lo largo de las últimas cinco décadas, los salarios promedio en la MLB han mostrado un crecimiento sostenido. Aunque con algunas fluctuaciones interanuales, la tendencia general indica que:
+
+El salario promedio ha pasado de cifras menores al millón de dólares en los años 70 y 80, a superar los 4 millones de USD en los años recientes.
+
+La línea de regresión lineal (en rojo) confirma esta tendencia positiva y sugiere que, en términos generales, la evolución de los salarios sigue una trayectoria ascendente significativa.
+
+Por último, se aplicó una prueba de correlación de Pearson para examinar la relación entre el año calendario y el salario promedio de los jugadores de las Grandes Ligas de Béisbol (MLB) durante las últimas décadas. La prueba arrojó una correlación muy alta y positiva (r = 0.9847, p < 2.2e-16), lo que indica una tendencia fuertemente creciente en los salarios promedio con el paso del tiempo. Esto sugiere que los jugadores han recibido compensaciones cada vez mayores de manera sostenida a lo largo de los últimos 30 años.
+
+#Pregunta 7: ¿Existen disparidades salariales entre jugadores con diferentes antecedentes educativos?
+
+
+
+```{r}
+# Creamos una variable binaria indicando si un jugador asistió a la universidad
+jugadores_uni <- escuelasJugadores |>
+  distinct(playerID) |>
+  mutate(asistio_uni = TRUE)
+
+# Unimos la información de salarios con la de asistencia universitaria
+salarios_educacion <- salarios |>
+  left_join(jugadores_uni, by = "playerID") |>
+  mutate(asistio_uni = ifelse(is.na(asistio_uni), FALSE, TRUE))
+
+# Calculamos salario total y promedio por jugador
+salarios_por_jugador <- salarios_educacion |>
+  group_by(playerID, asistio_uni) |>
+  summarise(
+    salario_total = sum(salary, na.rm = TRUE),
+    salario_promedio = mean(salary, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Creamos un resumen estadístico por grupo
+resumen_salarios <- salarios_por_jugador |>
+  group_by(asistio_uni) |>
+  summarise(
+    salario_prom_medio = mean(salario_promedio),
+    salario_prom_mediana = median(salario_promedio),
+    sd = sd(salario_promedio),
+    n = n()
+  )
+
+# Mostramos la tabla resumen
+knitr::kable(resumen_salarios, caption = "Resumen de salarios promedio según antecedentes educativos")
+
+# Visualización con boxplot
+ggplot(salarios_por_jugador, aes(x = as.factor(asistio_uni), y = salario_promedio, fill = as.factor(asistio_uni))) +
+  geom_boxplot(alpha = 0.7) +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  scale_fill_manual(values = c("#999999", "#66CC66"), labels = c("No", "Sí")) +
+  scale_x_discrete(labels = c("No", "Sí")) +
+  labs(
+    title = "Comparación del salario promedio anual",
+    subtitle = "Según antecedentes educativos (asistencia universitaria)",
+    x = "¿Asistió a la universidad?",
+    y = "Salario promedio anual (USD)",
+    fill = "Asistencia"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(plot.title = element_text(face = "bold"))
+
+```
+
+```{r}
+wilcox.test(salario_promedio ~ asistio_uni, data = salarios_por_jugador)
+
+```
+
+
+#Conclusión – Disparidades salariales según antecedentes educativos
+
+El análisis comparativo entre jugadores que asistieron a la universidad y aquellos que no revela ciertas diferencias en los ingresos. En promedio, los jugadores que no asistieron a la universidad perciben un salario anual más alto (1,336,455) que aquellos con antecedentes universitarios (1,048,638). Sin embargo, esta diferencia se ve matizada cuando se considera la mediana del salario, que es bastante similar para ambos grupos: 512,958 en jugadores sin universidad y 449,825 en quienes sí asistieron.
+
+Este patrón sugiere que la diferencia en el promedio puede estar influenciada por outliers, es decir, jugadores sin estudios universitarios que perciben salarios excepcionalmente altos. Esta hipótesis se refuerza al observar que la desviación estándar del grupo sin universidad es mayor, lo cual indica una mayor dispersión en sus salarios.
+
+Para evaluar si esta diferencia es estadísticamente significativa, se aplicó una prueba de Wilcoxon rank sum. El resultado fue:
+
+W = 3,730,304
+
+Valor-p < 0.000001
+
+Este resultado nos permite rechazar la hipótesis nula de igualdad en las distribuciones de los salarios promedio anuales entre ambos grupos. En consecuencia, existe una diferencia significativa, aunque no necesariamente grande, en los salarios promedio según el antecedente educativo de los jugadores.
+
 
