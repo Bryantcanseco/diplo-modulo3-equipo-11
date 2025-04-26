@@ -18,8 +18,54 @@ knitr::opts_chunk$set(echo = TRUE)
 library(DBI)
 library(dbplyr)
 library(RSQLite)
+library(skimr)
+library(DiagrammeR)
+
+
 
 conn <- DBI::dbConnect(RSQLite::SQLite(), "baseball.db")
 ```
 
+
+
+
+
+
+```{r}
+# Resumen de variables para cada tabla usando skim()
+skim(bateo)
+skim(escuelas)
+skim(escuelasJugadores)
+skim(field)
+skim(nombres)
+skim(pitcheo)
+skim(salarios)
+skim(salonFama)
+
+# Diagrama de relaciones principales entre las tablas
+grViz("
+digraph baseball_db {
+  
+  node [shape = box, style=filled, fillcolor=lightblue, fontname=Helvetica]
+  
+  bateo -> nombres [label = 'playerID']
+  pitcheo -> nombres [label = 'playerID']
+  field -> nombres [label = 'playerID']
+  salarios -> nombres [label = 'playerID']
+  escuelasJugadores -> nombres [label = 'playerID']
+  escuelasJugadores -> escuelas [label = 'schoolID']
+  salonFama -> nombres [label = 'playerID']
+
+  nombres [shape=ellipse, fillcolor=lightgreen]
+  escuelas [shape=ellipse, fillcolor=lightpink]
+}
+")
+
+```
+
+Se analizaron 8 tablas de baseball.db usando skimr, mostrando que en general las bases están limpias, aunque nombres presenta valores faltantes en variables de fallecimiento, como era esperable.
+
+El diagrama de relaciones muestra que nombres es la tabla central, conectando con desempeño (bateo, pitcheo, field), salarios (salarios), formación (escuelasJugadores) y logros (salonFama).
+
+No se detectaron duplicados importantes en playerID, y las tablas permiten análisis posteriores con poca limpieza adicional.
 
