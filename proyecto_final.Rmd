@@ -5,7 +5,18 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	fig.dim = c(5.0, 4.0),
+	fig.pos = "H",
+# Agregamos configuraciones para evitar mensajes de advertencias y de errores en el archivo
+	message = FALSE,
+	warning = FALSE,
+	error = F
+)
+
+
 ```
 
 # Integrantes:
@@ -16,6 +27,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # Cargamos las librerías necesarias para conectarnos y manipular la base de datos
+# Cargamos las librerías necesarias para conectarnos y manipular la base de datos
 library(dplyr)
 library(ggplot2)
 library(DBI)
@@ -24,25 +36,38 @@ library(RSQLite)
 library(tidyr)
 library(lubridate)
 library(stringr)
-library(knitr)
-library(visdat)
+library(knitr)        # Librería para hacer tablas más bonitas
+library(visdat)       # Ver datos faltantes en un df
 library(skimr)
 library(DiagrammeR)
+library(readr)
+library(countrycode)
+library(naniar)
+library(esquisse)
+library(patchwork)    # Orden de las librerías
 
 
 
 
-conn <- DBI::dbConnect(RSQLite::SQLite(), "baseball.db")
+```
+
+
+
+```{r Data}
+
+
+setwd("C:/Users/ferna/Documents/Diplomado_Data_Sience/Proyectos/diplo-modulo3-equipo-11/Data")
+# Conexión a la base de datos
+conn <- dbConnect(SQLite(), "baseball.db")
+
 ```
 
 
 
 
 
-
 ```{r}
-# Conexión a la base de datos
-conn <- dbConnect(SQLite(), "baseball.db")
+
 
 # Listar tablas de la base
 tablas <- dbListTables(conn)
