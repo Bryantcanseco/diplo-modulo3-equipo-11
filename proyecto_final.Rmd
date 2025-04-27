@@ -76,6 +76,7 @@ tablas <- dbListTables(conn)
 for (tabla in tablas) {
   assign(tabla, dbReadTable(conn, tabla))
 }
+
 # Resumen de variables para cada tabla usando skim()
 skim(bateo)
 skim(escuelas)
@@ -116,7 +117,6 @@ No se detectaron duplicados importantes en playerID, y las tablas permiten anál
 
 
 
-
 ```{r objetos_tablas}
 # Leemos cada tabla de la base de datos y creamos un objeto en R con el mismo nombre
 for (tabla in tablas) {
@@ -139,10 +139,152 @@ resumen_tablas <- tibble::tibble(
 knitr::kable(resumen_tablas, caption = "Resumen de tablas en la base de datos 'baseball.db'")
 ```
 
-## Introducción al Análisis Exploratorio (EDA)
+
+# Analisis de datos faltantes 
+
+
+
+```{r}
+muestreo_bate <- bateo %>% sample_n(1000)
+
+vis_dat(muestreo_bate)
+vis_miss(muestreo_bate)
+
+
+
+filtrado_muestreo_base <- muestreo_bate %>% 
+   select(CS, IBB, SF, GIDP)
+
+vis_miss(filtrado_muestreo_base)
+```
+
+#### Análisis de datos faltantes en la tabla Bateo
+
+En la tabla **Observaciones** (que nos muestra el desempeño ofensivo de jugadores de béisbol en diferentes equipos y años), podemos observar que, aunque solo falta el **5.5%** de los datos, estos datos faltantes se concentran en las columnas **CS**, **IBB**, **SF** y **GIDP**.
+
+Haciendo un análisis más exhaustivo, en estas cuatro columnas el número total de datos faltantes es del **27%**, donde en la mayoría de los casos los NAs ocurren en toda la fila. Esto podría deberse a que los jugadores tienen distintas posiciones y no todos participan de la misma manera en la ofensiva.
+
+
+
+```{r}
+vis_dat(escuelas)
+vis_miss(escuelas)
+```
+
+### Análisis de datos faltantes en la tabla Bateo
+
+En esta tabla contamos con solo **2.2%** de datos faltantes, lo cual no afectará nuestro análisis. Podemos atribuir estos NAs a que algunos jugadores no asistieron a la universidad o no se registraron en la base de datos.
+
+
+```{r}
+vis_dat(escuelasJugadores)
+vis_miss(escuelasJugadores)
+```
+
+### Análisis de datos faltantes en la tabla Escuelas de Jugadores
+
+
+Contamos con el **100%** de nuestros datos.
+
+
+```{r}
+muestreo_field <- field %>% sample_n(1000)
+
+vis_dat(muestreo_field)
+vis_miss(muestreo_field)
+
+
+filtrado_muestreo_base <- muestreo_field %>% 
+   select(GS, InnOuts, PB, SB,CS)
+
+
+vis_miss(filtrado_muestreo_base)
+```
+
+### Análisis de datos faltantes en la tabla Field
+
+Podemos observar un número elevado de NAs en la tabla. De manera global, el porcentaje de NAs es de **29%**, lo que podría complicar nuestro análisis, pero estos se concentran en su mayoría en las columnas **GS**, **InnOuts**, **PB**, **SB** y **CS**.
+
+En estas columnas, el porcentaje de NAs es del **64.9%**. Esto puede deberse a que no todos los jugadores tienen la misma cantidad de juegos o no todos son titulares (como en el caso de **GS**), o que su posición les haya permitido no participar en jugadas como **PB**, **SB** o **CS**.
+
+Por lo tanto, podemos concluir que estos NAs no afectarán nuestro análisis.
+
+```{r}
+vis_dat(nombres)
+vis_miss(nombres)
+
+filtrado_muestreo_base <- nombres %>% 
+   select(-deathYear, -deathMonth, -deathDay, -birthYear, -birthMonth, -birthDay, -deathCountry, -deathState, -deathCity, -deathDate)
+
+
+vis_miss(filtrado_muestreo_base)
+```
+
+### Análisis de datos faltantes en la tabla Nombres
+
+Esta tabla nos proporciona datos personales de los jugadores. Aunque tengamos un **15%** de datos faltantes, esto no afecta significativamente, ya que las columnas donde más hacen falta datos están relacionadas con la muerte del jugador.
+
+Esta situación se explica porque la mayoría de los jugadores son jóvenes que aún están en bachillerato o en la universidad. Llegamos a esta conclusión ya que, si quitamos las columnas relacionadas con los datos de muerte, solo nos quedamos con un **1.7%** de datos faltantes, los cuales pueden deberse a errores de captura o a registros incompletos en la base de datos.
+
+
+
+```{r}
+muestreo_pitcheo <- pitcheo %>% sample_n(1000)
+
+vis_dat(muestreo_pitcheo)
+vis_miss(muestreo_pitcheo)
+
+filtrado_muestreo_base <- muestreo_pitcheo %>% 
+   select(  IBB, SH, SF, GIDP)
+
+vis_miss(filtrado_muestreo_base)
+```
+
+
+### Análisis de datos faltantes en la tabla Picheo
+
+De igual forma, en la tabla de **pitcheo** podemos observar un porcentaje de **5%** de NAs, pero estos se concentran principalmente en cuatro columnas: **IBB**, **SH**, **SF** y **GIDP**.
+
+En estas columnas, el porcentaje de NAs es del **34%**. Esto puede deberse a que en el béisbol existen jugadas muy específicas que no todos los jugadores pueden llegar a realizar, o bien, no es común que la situación se presente debido a la posición en la que juegan.
+
+Por lo tanto, estos datos faltantes no afectan nuestro análisis.
+
+
+```{r}
+vis_dat(salarios)
+vis_miss(salarios)
+```
+
+### Análisis de datos faltantes en la tabla Salarios
+
+La tabla de salarios esta completa.
+
+```{r}
+vis_dat(salonFama)
+vis_miss(salonFama)
+
+filtrado_muestreo_base <- salonFama %>% 
+   select(ballots, needed, votes, needed_note)
+
+
+vis_miss(filtrado_muestreo_base)
+```
+
+### Análisis de datos faltantes en la tabla Salon de la Fama
+
+
+En esta tabla podemos ver que la proporción de datos faltantes es del **19.1%**, donde la mayoría de los NAs se encuentran en las columnas **ballots**, **needed**, **votes** y **needed_note**.
+
+En estas columnas, falta aproximadamente un **43%** de los datos. Esto puede deberse a que no todos los jugadores son postulados al Salón de la Fama, o bien, que no todos los jugadores obtuvieron los votos suficientes para ingresar.
+
+
+
+# Introducción al Análisis Exploratorio (EDA)
+
+
 En esta sección realizamos un análisis exploratorio del conjunto de datos de béisbol, con el objetivo de responder diversas preguntas relacionadas con la duración de carrera, rendimiento y salarios de los jugadores. Este análisis considera información contenida en múltiples tablas como bateo, pitcheo, salarios, salonFama, entre otras, provenientes de la base de datos baseball.db.
 
-#Pregunta 1: ¿Cuál es la duración promedio de la carrera de un jugador de béisbol profesional según su posición?
+## Pregunta 1: ¿Cuál es la duración promedio de la carrera de un jugador de béisbol profesional según su posición?
 
 Para responder esta pregunta, necesitaremos utilizar principalmente las tablas nombres (que contiene las posiciones) y bateo (que contiene información anual del jugador). El procedimiento que seguimos fue el siguiente:
 
@@ -212,7 +354,7 @@ Esto puede explicarse por el desgaste físico más alto que enfrentan los lanzad
 Además, observamos que los outfielders (OF) —que agrupan varias posiciones externas— presentan una duración promedio ligeramente inferior, lo cual puede deberse a que este grupo contiene una mezcla más diversa de trayectorias y rotaciones de jugadores.
 
 
-#Pregunta 2: ¿Cómo se comparan los promedios de bateo entre jugadores que asistieron a la universidad y los que no?
+## Pregunta 2: ¿Cómo se comparan los promedios de bateo entre jugadores que asistieron a la universidad y los que no?
 
 ```{r}
 # Unimos la tabla de bateo con escuelasJugadores para saber qué jugadores fueron a la universidad
@@ -263,7 +405,7 @@ ggplot(promedios_jugador, aes(x = as.factor(asistio_uni), y = promedio_bateo, fi
 resumen_bateo |> knitr::kable(caption = "Promedio de bateo por grupo")
 
 ```
-#Conclusiones: Comparación del promedio de bateo según asistencia universitaria
+### Conclusiones: Comparación del promedio de bateo según asistencia universitaria
 Con base en el análisis realizado, se observa que la diferencia en el promedio de bateo entre los jugadores que asistieron a la universidad y aquellos que no lo hicieron es mínima y no significativa. El promedio general de bateo para los jugadores sin estudios universitarios es de aproximadamente 0.191, mientras que para quienes sí asistieron es de 0.184. Asimismo, la mediana del promedio de bateo es apenas más alta para el grupo sin estudios universitarios (0.213 frente a 0.208).
 
 El gráfico de caja confirma que ambas distribuciones son bastante similares en forma y dispersión, presentando valores atípicos altos en ambos casos. La desviación estándar es levemente mayor en los jugadores con estudios universitarios, lo cual indica una mayor variabilidad en su desempeño, aunque no necesariamente una diferencia sustancial.
@@ -271,7 +413,7 @@ El gráfico de caja confirma que ambas distribuciones son bastante similares en 
 Por lo tanto, no se evidencia una ventaja clara en términos de promedio de bateo asociada a la asistencia universitaria. Ambos grupos presentan desempeños muy parecidos, por lo que este factor no parece ser determinante en el rendimiento ofensivo medido por el promedio de bateo.
 
 
-#Pregunta 3: ¿Cuál es la duración promedio de la carrera de un jugador de béisbol profesional según su posición?
+## Pregunta 3: ¿Cuál es la duración promedio de la carrera de un jugador de béisbol profesional según su posición?
 
 ```{r}
 # Unimos la duración de la carrera (calculada previamente) con la información salarial
@@ -303,7 +445,7 @@ cor.test(salario_duracion$duracion, salario_duracion$salario_total, method = "pe
 
 ```
 
-#Conclusiones sobre la relación entre duración de la carrera y salario total
+### Conclusiones sobre la relación entre duración de la carrera y salario total
 Se observa una tendencia creciente en el gráfico: los jugadores con carreras más largas tienden a acumular mayores ingresos totales a lo largo del tiempo. Esto se confirma visualmente mediante la línea de ajuste lineal (geom_smooth()), que tiene una pendiente positiva.
 
 El coeficiente de correlación de Pearson entre la duración de la carrera y el salario total acumulado es de aproximadamente 0.51, lo que indica una correlación moderada y positiva entre ambas variables. En otras palabras, existe una relación directa: a mayor duración de carrera, mayor es el salario acumulado.
@@ -313,7 +455,7 @@ El valor de p < 2.2e-16 confirma que esta correlación es estadísticamente sign
 El intervalo de confianza del 95% para la correlación se encuentra entre 0.49 y 0.53, lo cual respalda la consistencia del resultado.
 
 
-#Pregunta 4: ¿Existe una diferencia significativa en el rendimiento entre jugadores de diferentes conferencias universitarias?
+## Pregunta 4: ¿Existe una diferencia significativa en el rendimiento entre jugadores de diferentes conferencias universitarias?
 
 ```{r}
 # Librerías
@@ -355,14 +497,14 @@ summary(anova_ligas)
 
 ```
 
-#Conclusiones:
+### Conclusiones:
 Se realizó un análisis ANOVA para evaluar si existían diferencias significativas en el promedio de bateo entre jugadores pertenecientes a distintas ligas (variable lgID_field).
 El resultado del ANOVA indicó diferencias estadísticamente significativas (p < 0.001), lo que sugiere que el rendimiento de bateo promedio varía de manera significativa entre ligas.
 
 La inspección visual del boxplot revela que, si bien la mayoría de las ligas presentan medianas de bateo similares, algunas ligas como PL y NA muestran valores medianos de bateo ligeramente superiores en comparación con ligas como AL y FL.
 Sin embargo, la magnitud de las diferencias no es extrema, indicando que aunque hay un efecto de la liga en el desempeño, este efecto es modesto.
 
-#Pregunta 5: ¿Cómo se relaciona la altura y el peso del jugador con su rendimiento en bateo?
+## Pregunta 5: ¿Cómo se relaciona la altura y el peso del jugador con su rendimiento en bateo?
 
 Podemos proceder a:
 -Calcular el promedio de bateo por jugador (H / AB) desde la tabla bateo.
@@ -413,7 +555,7 @@ cor.test(bateo_fisico$height, bateo_fisico$promedio_bateo)
 cor.test(bateo_fisico$weight, bateo_fisico$promedio_bateo)
 
 ```
-#Conclusiones:
+### Conclusiones:
 Las gráficas y resultados estadísticos muestran que tanto la altura como el peso de los jugadores tienen una relación negativa débil con el promedio de bateo:
 
 Altura vs. promedio de bateo:
@@ -430,7 +572,7 @@ Esto indica que el peso tiene incluso menor asociación con el rendimiento en ba
 
 Por lo tanto, a pesar de que ambas características físicas muestran una tendencia negativa en relación al promedio de bateo, los valores de correlación sugieren que estos factores no explican de forma sustancial el desempeño al batear. Otros aspectos como la técnica, experiencia, visión o velocidad de reacción probablemente influyen mucho más en el rendimiento.
 
-#Pregunta 6: ¿Existe alguna tendencia de los salarios en la MLB en los últimos 50 años?
+## Pregunta 6: ¿Existe alguna tendencia de los salarios en la MLB en los últimos 50 años?
 
 
 ```{r}
@@ -473,7 +615,7 @@ cor.test(salarios_por_anio$yearID, salarios_por_anio$salario_promedio, method = 
 ```
 
 
-#Conclusión:
+### Conclusión:
 A lo largo de las últimas cinco décadas, los salarios promedio en la MLB han mostrado un crecimiento sostenido. Aunque con algunas fluctuaciones interanuales, la tendencia general indica que:
 
 El salario promedio ha pasado de cifras menores al millón de dólares en los años 70 y 80, a superar los 4 millones de USD en los años recientes.
@@ -482,7 +624,7 @@ La línea de regresión lineal (en rojo) confirma esta tendencia positiva y sugi
 
 Por último, se aplicó una prueba de correlación de Pearson para examinar la relación entre el año calendario y el salario promedio de los jugadores de las Grandes Ligas de Béisbol (MLB) durante las últimas décadas. La prueba arrojó una correlación muy alta y positiva (r = 0.9847, p < 2.2e-16), lo que indica una tendencia fuertemente creciente en los salarios promedio con el paso del tiempo. Esto sugiere que los jugadores han recibido compensaciones cada vez mayores de manera sostenida a lo largo de los últimos 30 años.
 
-#Pregunta 7: ¿Existen disparidades salariales entre jugadores con diferentes antecedentes educativos?
+##  Pregunta 7: ¿Existen disparidades salariales entre jugadores con diferentes antecedentes educativos?
 
 
 
@@ -543,7 +685,7 @@ wilcox.test(salario_promedio ~ asistio_uni, data = salarios_por_jugador)
 ```
 
 
-#Conclusión – Disparidades salariales según antecedentes educativos
+### Conclusión – Disparidades salariales según antecedentes educativos
 
 El análisis comparativo entre jugadores que asistieron a la universidad y aquellos que no revela ciertas diferencias en los ingresos. En promedio, los jugadores que no asistieron a la universidad perciben un salario anual más alto (1,336,455) que aquellos con antecedentes universitarios (1,048,638). Sin embargo, esta diferencia se ve matizada cuando se considera la mediana del salario, que es bastante similar para ambos grupos: 512,958 en jugadores sin universidad y 449,825 en quienes sí asistieron.
 
@@ -556,5 +698,47 @@ W = 3,730,304
 Valor-p < 0.000001
 
 Este resultado nos permite rechazar la hipótesis nula de igualdad en las distribuciones de los salarios promedio anuales entre ambos grupos. En consecuencia, existe una diferencia significativa, aunque no necesariamente grande, en los salarios promedio según el antecedente educativo de los jugadores.
+
+
+
+```{r Referencia}
+head(bateo)
+head(escuelas)
+head(escuelasJugadores)
+head(field)
+head(nombres)
+head(pitcheo)
+head(salarios)
+head(salonFama)
+
+```
+
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Parte de Fernando ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+## ¿La asistencia a la universidad influye en el salario del primer año de un jugador?
+
+
+
+## ¿Hay alguna relación entre las estadísticas de rendimiento (promedio de bateo, home runs) y el salario?
+
+## ¿Los lanzadores ganan salarios significativamente diferentes a los bateadores?
+
+## ¿Qué factores contribuyen a la inducción al Salón de la Fama?
+
+## ¿Existe una diferencia significativa en las tasas de entrada al Salón de la Fama entre lanzadores y bateadores?
+
+## ¿El número de home runs aumenta las probabilidades de ingresar al Salón de la Fama?
+
+## ¿Los jugadores de ciertas décadas tienen más probabilidades de ser incluidos al Salón de la Fama?
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
