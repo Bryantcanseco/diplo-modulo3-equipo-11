@@ -114,6 +114,216 @@ No se detectaron duplicados importantes en playerID, y las tablas permiten anál
 
 
 
+### Diccionario 
+
+Como no se proporciono un diccionario de que significaban las variables nosotros lo creamos investigando un poco del deporte: 
+
+
+
+
+
+#### Tabla  bateo (bateo de jugadores en partidos)
+
+
+
+# Descripción de las columnas:
+# - playerID: Identificador único del jugador.
+# - yearID: Año en que se registraron las estadísticas.
+# - stint: Número de veces que un jugador cambia de equipo en un año (1 = primera aparición, 2 = segunda, etc.).
+# - teamID: Abreviatura del equipo en el que jugó.
+# - lgID: Liga a la que pertenece el equipo (NL = National League, AL = American League).
+# - G: Juegos jugados (Games).
+# - AB: Turnos al bate oficiales (At Bats).
+# - R: Carreras anotadas (Runs).
+# - H: Hits (veces que el jugador consiguió llegar a una base mediante un golpe válido).
+# - X2B: Dobles (Hits que permiten llegar a segunda base directamente).
+# - X3B: Triples (Hits que permiten llegar a tercera base directamente).
+# - HR: Home runs (jonrones; cuando la bola sale del campo y el jugador anota directamente).
+# - RBI: Carreras impulsadas (Runs Batted In; número de carreras que el bateador ayudó a anotar).
+# - SB: Bases robadas (Stolen Bases; cuántas veces avanzó de base corriendo antes de ser puesto out).
+# - CS: Intentos de robo de base fallidos (Caught Stealing).
+# - BB: Bases por bolas recibidas (Walks; cuando el lanzador da cuatro bolas malas y el jugador avanza a primera base).
+# - SO: Ponches recibidos (Strikeouts; cuando es eliminado por fallar al batear).
+# - IBB: Bases por bolas intencionales (cuando el lanzador decide no enfrentar al bateador y lo envía directo a primera).
+# - HBP: Veces golpeado por un lanzamiento (Hit By Pitch).
+# - SH: Toques de sacrificio (Sacrifice Hits; avanza corredores sacrificando su propio turno).
+# - SF: Flies de sacrificio (Sacrifice Flies; elevado que permite anotar una carrera).
+# - GIDP: Doble matanza en la que participó (Ground Into Double Play; el jugador batea para doble eliminación).
+
+
+
+
+
+#### Tabla escuelas (escuelas de jugadores)
+
+
+
+# Descripción de las columnas:
+# - schoolID: Identificador único de la escuela (un código para identificarla fácilmente).
+# - name_full: Nombre completo de la escuela (por ejemplo "Universidad de Stanford" o "Texas A&M University").
+# - city: Ciudad donde se encuentra la escuela.
+# - state: Estado (o región) donde está ubicada la escuela.
+# - country: País donde se encuentra la escuela.
+
+
+
+
+
+#### Tabla escuelasJugadores  (escuelas de los Jugadores)
+
+
+# Descripción de las columnas:
+# - playerID: Identificador único del jugador (permite saber de qué jugador estamos hablando).
+# - schoolID: Identificador único de la escuela que asistió el jugador (se puede unir con la tabla de escuelas para saber el nombre completo).
+# - yearID: Año en el que el jugador asistió a esa escuela.
+
+
+
+
+
+#### Tabla field (estadísticas de campo de los  jugadores)
+
+
+
+# Descripción de las columnas:
+# - playerID: Identificador único del jugador.
+# - yearID: Año de la estadística.
+# - stint: Número de aparición en el año (por cambios de equipo o posiciones).
+# - teamID: Abreviatura del equipo.
+# - lgID: Liga a la que pertenece el equipo (NL o AL).
+# - POS: Posición de juego (por ejemplo, 1B = primera base, SS = shortstop, OF = outfielder).
+# - G: Juegos jugados en esa posición.
+# - GS: Juegos iniciados (Games Started) en esa posición.
+# - InnOuts: Número de outs realizados mientras jugaba (cada inning tiene 3 outs).
+# - PO: Putouts; outs hechos directamente (por ejemplo, capturar una bola voladora).
+# - A: Assists; asistencias en jugadas defensivas.
+# - E: Errors; errores cometidos en el fildeo.
+# - DP: Doble plays en los que participó.
+# - PB: Passed Balls; para receptores (cátchers), errores al recibir lanzamientos.
+# - WP: Wild Pitches; lanzamientos malos del pitcher (a veces se registran si el receptor no logra detenerlos).
+# - SB: Bases robadas permitidas (cuando el cátcher o equipo permite que un corredor robe base).
+# - CS: Caught Stealing; corredores atrapados tratando de robar base.
+# - ZR: Zone Rating; medida avanzada de qué tan efectivo es un jugador cubriendo su zona defensiva.
+
+
+
+
+
+
+
+#### Tabla nombres (información personal de jugadores)
+
+
+
+# Descripción de las columnas:
+# - playerID: Identificador único del jugador.
+# - birthYear: Año de nacimiento.
+# - birthMonth: Mes de nacimiento.
+# - birthDay: Día de nacimiento.
+# - birthCountry: País de nacimiento.
+# - birthState: Estado o región de nacimiento.
+# - birthCity: Ciudad de nacimiento.
+# - deathYear: Año de fallecimiento (NA si el jugador sigue vivo).
+# - deathMonth: Mes de fallecimiento.
+# - deathDay: Día de fallecimiento.
+# - deathCountry: País donde falleció.
+# - deathState: Estado donde falleció.
+# - deathCity: Ciudad donde falleció.
+# - nameFirst: Primer nombre del jugador.
+# - nameLast: Apellido del jugador.
+# - nameGiven: Nombre completo de pila que usaba (puede incluir segundo nombre o variaciones).
+# - weight: Peso del jugador (en libras).
+# - height: Estatura del jugador (en pulgadas).
+# - bats: Lado desde el cual batea el jugador (R = Right, L = Left, B = Both).
+# - throws: Lado con el que lanza el jugador (R = Right, L = Left).
+# - debut: Fecha del debut en las Grandes Ligas.
+# - finalGame: Fecha del último partido en Grandes Ligas.
+# - retroID: Código de identificación usado por la base de datos RetroSheet.
+# - bbrefID: Código usado en Baseball-Reference (otra fuente de datos de béisbol).
+
+
+
+
+
+
+
+#### Tabla pitcheo (estadísticas de pitcheo de jugadores)
+
+
+
+# Descripción de las columnas:
+# - playerID: Identificador único del jugador.
+# - yearID: Año de la estadística.
+# - stint: Número de aparición (cambio de equipo o rol en el mismo año).
+# - teamID: Abreviatura del equipo.
+# - lgID: Liga del equipo (NL o AL).
+# - W: Juegos ganados (Wins).
+# - L: Juegos perdidos (Losses).
+# - G: Juegos en los que participó lanzando.
+# - GS: Juegos en los que fue pitcher abridor (Games Started).
+# - CG: Juegos completos (el pitcher lanzó todo el partido).
+# - SHO: Juegos en los que no permitió carreras (Shutouts).
+# - SV: Juegos salvados (Saves; cuando un pitcher cierra exitosamente un partido ganado).
+# - IPouts: Número de outs logrados (cada inning tiene 3 outs).
+# - H: Hits permitidos.
+# - ER: Carreras limpias permitidas (Earned Runs; no incluyen errores defensivos).
+# - HR: Home runs permitidos.
+# - BB: Bases por bolas otorgadas (Walks concedidos).
+# - SO: Ponches realizados (Strikeouts).
+# - BAOpp: Promedio de bateo de los rivales (batting average of opponents).
+# - ERA: Promedio de carreras limpias (Earned Run Average; mide efectividad del pitcher).
+# - IBB: Bases por bolas intencionales otorgadas.
+# - WP: Lanzamientos descontrolados (Wild Pitches).
+# - HBP: Bateadores golpeados por lanzamiento.
+# - BK: Balks (movimientos ilegales del pitcher).
+# - BFP: Total de bateadores enfrentados (Batters Faced by Pitcher).
+# - GF: Juegos terminados por el pitcher (cuando fue el último lanzador de su equipo en el juego).
+# - R: Total de carreras permitidas (incluyendo las no limpias).
+# - SH: Toques de sacrificio permitidos.
+# - SF: Flies de sacrificio permitidos.
+# - GIDP: Doble plays en los que su equipo participó cuando él lanzaba.
+
+
+
+
+
+
+#### Tabla  salarios (salarios de jugadores)
+
+
+# Descripción de las columnas:
+# - yearID: Año en que se pagó el salario.
+# - teamID: Abreviatura del equipo que pagó el salario.
+# - lgID: Liga a la que pertenece el equipo (NL o AL).
+# - playerID: Identificador único del jugador.
+# - salary: Salario anual del jugador (en dólares).
+
+
+
+
+
+
+
+
+#### Tabla  salonFama (candidatos al Salón de la Fama)
+
+
+# Descripción de las columnas:
+# - playerID: Identificador único del jugador.
+# - yearID: Año en el que ocurrió la votación.
+# - votedBy: Método de votación (por ejemplo, "BBWAA" para la asociación de escritores de béisbol).
+# - ballots: Número total de boletas en las que fue incluido el jugador ese año.
+# - needed: Número de votos requeridos para ser elegido (usualmente el 75% de las boletas).
+# - votes: Número de votos que recibió el jugador.
+# - inducted: Indica si el jugador fue finalmente inducido ("Y" = sí, "N" = no).
+# - category: Categoría en la que fue evaluado (puede ser "Player", "Manager", "Umpire", etc.).
+# - needed_note: Notas adicionales sobre los requisitos especiales para ser elegido.
+
+
+
+
+
+
 
 
 
