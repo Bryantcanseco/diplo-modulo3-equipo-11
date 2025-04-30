@@ -46,6 +46,8 @@ library(naniar)
 library(esquisse)
 library(patchwork)    # Orden de las librerías
 
+library(multcomp) #Pruebas de hipotesisi
+
 
 
 
@@ -55,8 +57,7 @@ library(patchwork)    # Orden de las librerías
 
 ```{r Data}
 
-
-setwd("C:/Users/ferna/Documents/Diplomado_Data_Sience/Proyectos/diplo-modulo3-equipo-11/Data")
+setwd("C:/Users/ferna/Documents/Proyectos_Diplomado/diplo-modulo3-equipo-11/Data")
 # Conexión a la base de datos
 conn <- dbConnect(SQLite(), "baseball.db")
 
@@ -859,6 +860,214 @@ Este resultado nos permite rechazar la hipótesis nula de igualdad en las distri
 
 
 
+
+```{r}
+summary(salarios)
+```
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Parte de Fernando ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+## ¿La asistencia a la universidad influye en el salario del primer año de un jugador?
+
+
+```{r}
+
+
+primersalario <- salarios %>%  #Primer salario de cada jugador
+  group_by(playerID) %>%
+  slice_min(order_by = yearID, with_ties = FALSE) %>%
+  ungroup()
+
+
+ultimo_año <- escuelasJugadores |> group_by(playerID) |> #Df, donde viene el ultimo año de estudios de cada jugador 
+                  slice_max(order_by = yearID, with_ties = FALSE) |>
+                  ungroup() 
+
+
+analisis <- primersalario |>
+    left_join(escuelasJugadores, by = "playerID") |>
+    mutate(estudios = ifelse(is.na(schoolID),  "No", "Si")) %>% #Para ver si de verded fue a la escuel el jugador
+    dplyr::select(salary, estudios)
+
+analisis$estudios <- as.factor(analisis$estudios) #Convertimos a factor para la prueb
+
+
+modelo <- lm(salary ~ estudios, data = analisis)
+
+# Realizamos la prueba de hipótesis
+
+k_8 <- matrix(c(0, 1),  ncol=2, nrow = 1,  byrow=TRUE)
+
+
+summary(glht(modelo, linfct = k_8, rhs = c(0), alternative = "greater"))
+
+
+
+
+```
+
+Nos planteamos la siguiente pregunta: ¿en promedio, un jugador que asiste a la universidad tiene un primer salario más alto que uno que no asiste?
+
+Para responderla, realizamos un modelo de regresión lineal y una prueba de hipótesis. La evidencia estadística indica que esta hipótesis es falsa: en promedio, los jugadores que asistieron a la universidad ganan **127,811 dólares menos** que aquellos que no asistieron.
+
+Por lo tanto, podemos concluir que si un jugador asiste a la universidad, su primer salario será, en promedio, menor que el de un jugador que no asistió.
+
+Hagamos una gráfica para visualizarlo:
+
+
+
+
+```{r}
+grafica_8 <- analisis
+
+grafica_8$salary <- log(grafica_8$salary) #Transformamos la variable a logaritmo para que se vea mejor la grafica
+
+
+#esquisser(grafica_8)
+
+ggplot(grafica_8) +
+  aes(x = "", y = salary, fill = estudios) +
+  geom_boxplot() +
+  scale_fill_manual(
+    values = c(No = "#C41C10",
+    Si = "#147AA5")
+  ) +
+  labs(
+    x = "Asistencia a la Universidad",
+    y = "Primer salario en escala logaritmica",
+    title = "Primer salario vs Educacion"
+  ) +
+  ggthemes::theme_pander() +
+  theme(
+    axis.text.y = element_text(size = 15L),
+    axis.text.x = element_text(size = 20L),
+    legend.text = element_text(size = 13L),
+    legend.title = element_text(size = 20L)
+  )
+
+
+```
+
+
+
+
+
+
+## ¿Hay alguna relación entre las estadísticas de rendimiento (promedio de bateo, home runs) y el salario?
+
+```{r}
+analisis_estadisticas <- bateo %>% #Filtrando los datos, para tener los bateos, home runs y los salarios 
+  left_join(salarios, by = c("playerID", "yearID")) %>%
+  filter(!is.na(salary)) %>%
+  filter(AB > 0) %>%
+  dplyr::select(playerID, yearID , salary, AB, HR, H ) %>%
+  mutate(
+    promedio_bateo = H / AB
+  ) #Filtrando los datos, para tener los bateos, home runs y los salarios
+
+
+
+
+
+resumen_por_anio <- analisis_estadisticas %>%   # Haciendo una exploracion de los datos, para ver como se han comportado los promedios a lo largo del tiempo 
+  filter(!is.na(salary)) %>%
+  group_by(yearID) %>%
+  summarise(
+    promedio_HR = mean(HR, na.rm = TRUE),
+    promedio_AB = mean(AB, na.rm = TRUE),
+    promedio_salario = mean(salary, na.rm = TRUE),
+    n_jugadores = n()
+  ) 
+
+analisis_estadisticas
+
+```
+
+
+```{r}
+modelo_sal_est = lm(salary ~ promedio_bateo + HR, data = analisis_estadisticas)
+
+
+
+# Prueba de hipotesis 
+
+k_9 <- matrix(c(0, 1, 0, 
+                0, 0, 1),  ncol=3, nrow = 2,  byrow=TRUE)
+
+
+summary(glht(modelo_sal_est, linfct = k_9, rhs = c(0, 0), alternative = "greater"))
+
+
+```
+De esta prueba de hipótesis podemos concluir que, en promedio, el promedio de bateo no influye tanto en el salario de un jugador. En cambio, la capacidad de completar jugadas y conectar *home runs* es lo que más contribuye a que los jugadores ganen más dinero.
+
+
+```{r}
+plot(modelo_sal_est)
+```
+
+```{r}
+
+library(plotly)
+library(dplyr)
+
+# Crear una cuadrícula de valores
+grid <- expand.grid(
+  promedio_bateo = seq(min(analisis_estadisticas$promedio_bateo, na.rm = TRUE),
+                       max(analisis_estadisticas$promedio_bateo, na.rm = TRUE),
+                       length.out = 50),
+  HR = seq(min(analisis_estadisticas$HR, na.rm = TRUE),
+           max(analisis_estadisticas$HR, na.rm = TRUE),
+           length.out = 50)
+)
+
+# Predecir sobre la cuadrícula
+grid$salary_predicho <- predict(modelo_sal_est, newdata = grid)
+
+
+plot_ly() %>%
+  add_markers(
+    data = analisis_estadisticas,
+    x = ~promedio_bateo,
+    y = ~HR,
+    z = ~salary,
+    marker = list(color = '#147AA5', size = 2),
+    name = "Datos reales"
+  ) %>%
+  add_surface(
+    x = matrix(grid$promedio_bateo, nrow = 50),
+    y = matrix(grid$HR, nrow = 50),
+    z = matrix(grid$salary_predicho, nrow = 50),
+    showscale = FALSE,
+    opacity = 0.7,
+    name = "Modelo lineal"
+  ) %>%
+  layout(
+    title = "Modelo salary ~ promedio_bateo + HR",
+    scene = list(
+      xaxis = list(title = "Promedio de bateo"),
+      yaxis = list(title = "HR"),
+      zaxis = list(title = "Salary")
+    )
+  )
+
+
+```
+
+
+En esta gráfica 3D simulamos nuestra regresión mediante un "plano de varios colores", donde los ejes X y Y representan el número de *home runs* (HR) y el promedio de bateo, respectivamente, mientras que el eje Z representa el salario.  
+Los puntos azules corresponden a los jugadores a lo largo de los años que duró su carrera.
+
+Lo que podemos observar es que el salario tiende a aumentar en proporción al número de *home runs* conectados, y no tanto al promedio de bateo. Esto sugiere que finalizar una jugada con un *home run* tiene más peso económico que simplemente batear con frecuencia.
+
+
+
+
+
 ```{r Referencia}
 head(bateo)
 head(escuelas)
@@ -872,19 +1081,56 @@ head(salonFama)
 ```
 
 
-
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Parte de Fernando ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-## ¿La asistencia a la universidad influye en el salario del primer año de un jugador?
-
-
-
-## ¿Hay alguna relación entre las estadísticas de rendimiento (promedio de bateo, home runs) y el salario?
-
 ## ¿Los lanzadores ganan salarios significativamente diferentes a los bateadores?
+
+
+```{r}
+
+#Ir filtrando las posiciones y los salarios de cada jugador, para saber de que juegan y cuanto ganaraon en esa posicion en cada año 
+
+salarios_posiciones <- field %>%
+  left_join(salarios, by = c("playerID", "yearID")) %>%
+  filter(!is.na(salary)) %>%
+  group_by(playerID,yearID,  POS) %>%
+  summarise(
+    salario_total = salary,
+    juegos = G,
+    .groups = "drop"
+  ) %>%
+  mutate(tipo_jugador = ifelse(POS == "P", "Lanzador", "Bateador")) %>%
+  mutate(tipo_jugador = as.factor(tipo_jugador)) 
+
+
+salarios_posiciones
+
+# Obtenemos un promedio de cuanto ganaran en todos los años que jugaron en esa posicion 
+salarios_acumulados <- salarios_posiciones %>%
+  group_by(playerID, POS) %>%
+  summarise(
+    salario_total = mean(salario_total, na.rm = TRUE),
+    juegos_total = sum(juegos, na.rm = TRUE),
+    tipo_jugador = first(tipo_jugador),  # conservar etiqueta
+    .groups = "drop"
+  )
+
+salarios_acumulados
+
+```
+
+```{r}
+# Reliazno modelo de regresion 
+
+modelo_salario_pos <- lm(salario_total ~ juegos_total +tipo_jugador, data = salarios_acumulados)
+
+summary(modelo_salario_pos)
+```
+
+
+```{r}
+esquisser(salarios_acumulados)
+```
+
+
 
 ## ¿Qué factores contribuyen a la inducción al Salón de la Fama?
 
