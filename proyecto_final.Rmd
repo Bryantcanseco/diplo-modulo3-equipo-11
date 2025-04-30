@@ -48,6 +48,8 @@ library(patchwork)    # Orden de las librerías
 
 library(multcomp) #Pruebas de hipotesisi
 
+library(psych) # Libreria para hacer Factor de Analisis
+
 
 
 
@@ -1066,21 +1068,6 @@ Lo que podemos observar es que el salario tiende a aumentar en proporción al n�
 
 
 
-
-
-```{r Referencia}
-head(bateo)
-head(escuelas)
-head(escuelasJugadores)
-head(field)
-head(nombres)
-head(pitcheo)
-head(salarios)
-head(salonFama)
-
-```
-
-
 ## ¿Los lanzadores ganan salarios significativamente diferentes a los bateadores?
 
 
@@ -1150,10 +1137,12 @@ grid_pred$salario_predicho <- predict(modelo_salario_pos, newdata = grid_pred)
 ggplot(salarios_acumulados, aes(x = juegos_total, y = salario_total, color = tipo_jugador)) +
   geom_point(alpha = 0.6) +
   geom_line(data = grid_pred, aes(y = salario_predicho), linewidth = 1.2) +
-   scale_fill_manual(
-    values = c(salarios_acumulados$Bateador = "#C41C10",
-               salarios_acumulados$Lanzador = "#147AA5")
-  ) +
+  scale_color_manual(
+  values = c(
+    "Bateador" = "#C41C1C", 
+    "Lanzador" = "#147AA5"
+  )
+)+
   labs(
     title = "Comparando nuestro modelos y nuestros datos",
     x = "Juegos totales",
@@ -1164,10 +1153,161 @@ ggplot(salarios_acumulados, aes(x = juegos_total, y = salario_total, color = tip
 
 ```
 
+En esta gráfica podemos observar que, en promedio, los lanzadores ganan más que los bateadores por el mismo tiempo de juego.  
+Sin embargo, como su carrera suele ser más corta, esto podría deberse a que la posición de lanzador es más lesiva, especialmente en la zona del hombro, lo que puede acortar la duración de su trayectoria profesional.  
+Además, dado que pocos jugadores pueden lanzar a gran velocidad, esta escasez podría encarecer la posición.
+
+
+```{r Referencia}
+head(bateo)
+head(escuelas)
+head(escuelasJugadores)
+head(field)
+head(nombres)
+head(pitcheo)
+head(salarios)
+head(salonFama)
+
+```
 
 ## ¿Qué factores contribuyen a la inducción al Salón de la Fama?
 
+Para responder esta pregunta utilizaremos regresion logistica, para tratar de calcular la probabilidad de que un jugador entre al salon de la fama.
+
+
+```{r}
+
+data_fama <- salonFama %>%
+  left_join(field, by = "playerID") %>%
+  left_join(pitcheo, by = "playerID") %>%
+  mutate(tipo_jugador = ifelse(POS == "P", "Lanzador", "Bateador")) %>%
+  mutate(tipo_jugador = as.factor(tipo_jugador)) %>%
+  dplyr::select(playerID, yearID=yearID.x, inducted, tipo_jugador, InnOuts, PO, HR, SO ) %>%
+  mutate( #Filtrando los datos, para no tener NAs
+    InnOuts = ifelse(is.na(InnOuts), 0, InnOuts),
+    PO = ifelse(is.na(PO), 0, PO),
+    HR = ifelse(is.na(HR), 0, HR),
+    SO = ifelse(is.na(SO), 0, SO)
+  ) %>%
+  group_by(playerID) 
+ 
+
+
+
+
+data_fama
+```
+
+
+```{r}
+filtroFamosos <- data_fama %>%
+   filter(!is.na(tipo_jugador) | !is.na(inducted)) %>%
+  group_by(playerID) %>%
+  summarise(
+    fue_selc = any(inducted == "Y"),  # Si fue seleccionado
+    año = ifelse(fue_selc, min(yearID[inducted == "Y"]), max(yearID)),
+    tipo_jugador = tipo_jugador[yearID == año][1],  # toma la posición en ese año
+    InnOuts = sum(InnOuts, na.rm = TRUE),
+    PO = sum(PO, na.rm = TRUE),
+    HR = sum(HR, na.rm = TRUE),
+    SO = sum(SO, na.rm = TRUE), 
+    fue_selc = ifelse(fue_selc, "Y", "N"),  # Cambiamos a Y o N
+  ) %>%
+  mutate(
+    fue_selc = as.factor(fue_selc)
+  ) 
+ 
+
+filtroFamosos
+```
+
+```{r}
+modloGLM <- glm(fue_selc ~ tipo_jugador  + PO + HR + SO, data = filtroFamosos, family = binomial(link = "logit"))
+
+summary(modloGLM)
+```
+
+
+En base al modelo propuesto, podemos observar que los jugadores cuya posición principal es la de lanzador presentan, en promedio, una menor probabilidad de ser incluidos en el Salón de la Fama, en comparación con los bateadores.
+
+Asimismo, el modelo muestra que los jugadores con mayores valores de PO (putouts) y SO (strikeouts) tienen una mayor probabilidad estimada de ser inducidos, mientras que un mayor número de HR (home runs permitidos) se asocia negativamente con la inducción.
+
+Esto sugiere que los jugadores que participan más activamente en jugadas defensivas o que dominan desde el montículo con ponches, tienden a ser mejor valorados en la elección al Salón de la Fama que aquellos que permiten más carreras.
+
+
+Veamos unas graficas para corroborar esto:
+
+```{r}
+# Quitando los NAs para que no nos hagan ruido a la hora de graficar
+limpios_fama <- na.omit(filtroFamosos)
+
+```
+```{r}
+limpios_fama %>%
+ filter(InnOuts >= 0L & InnOuts <= 5127792L) %>%
+ ggplot() +
+  aes(x = PO, fill = fue_selc) +
+  geom_histogram(bins = 30L) +
+  scale_fill_manual(values = c(N = "#D21F13", Y = "#0D93B3")) +
+  labs(title = "PO") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10L),
+    legend.text = element_text(size = 15L)
+  ) +
+  facet_wrap(vars(tipo_jugador))
+```
+
+
+Aquí podemos ver reflejada la tendencia observada en el modelo: la probabilidad de ser inducido al Salón de la Fama aumenta si el jugador era bateador y si tiene un mayor número de *PO*.
+
+
+```{r}
+limpios_fama %>%
+ filter(InnOuts >= 0L & InnOuts <= 5127792L) %>%
+ ggplot() +
+  aes(x = HR, fill = fue_selc) +
+  geom_histogram(bins = 30L) +
+  scale_fill_manual(values = c(N = "#D21F13", Y = "#0D93B3")) +
+  labs(title = "HR") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10L),
+    legend.text = element_text(size = 15L)
+  ) +
+  facet_wrap(vars(tipo_jugador))
+```
+De la misma forma, observamos que un beisbolista tiene una mayor probabilidad de entrar al Salón de la Fama si es bateador y si su número de *home runs* (HR) es mayor.
+
+
+```{r}
+limpios_fama %>%
+ filter(InnOuts >= 0L & InnOuts <= 5127792L) %>%
+ ggplot() +
+  aes(x = SO, fill = fue_selc) +
+  geom_histogram(bins = 30L) +
+  scale_fill_manual(values = c(N = "#D21F13", Y = "#0D93B3")) +
+  labs(title = "SO") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10L),
+    legend.text = element_text(size = 15L)
+  ) +
+  facet_wrap(vars(tipo_jugador))
+```
+
+Por último, en esta gráfica observamos que los bateadores con un mayor número de *SO* (strikeouts) tienen una mayor probabilidad de entrar al Salón de la Fama.
+
+
 ## ¿Existe una diferencia significativa en las tasas de entrada al Salón de la Fama entre lanzadores y bateadores?
+
+
+
+```{r}
+esquisser(filtroFamosos)
+```
+
+
 
 ## ¿El número de home runs aumenta las probabilidades de ingresar al Salón de la Fama?
 
