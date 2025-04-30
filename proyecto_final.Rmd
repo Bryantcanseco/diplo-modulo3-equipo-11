@@ -1120,16 +1120,49 @@ salarios_acumulados
 ```{r}
 # Reliazno modelo de regresion 
 
-modelo_salario_pos <- lm(salario_total ~ juegos_total +tipo_jugador, data = salarios_acumulados)
+modelo_salario_pos <- lm(salario_total ~ juegos_total * tipo_jugador, data = salarios_acumulados)
 
 summary(modelo_salario_pos)
+
+# Realizamos la prueba de hipótesis
+k_10 <- matrix(c(0,0,1, 1), ncol=4, nrow= 1,  byrow=TRUE)
+
+
+summary(glht(modelo_salario_pos, linfct = k_10, rhs = c(0), alternative = "greater"))
 ```
+Para responder esta pregunta y determinar qué tipo de jugador gana más, realizamos un modelo de regresión que incluye tanto el tipo de jugador como el total de juegos disputados, con el objetivo de hacer la comparación más justa.
+
+Al aplicar una prueba de hipótesis para evaluar si, en promedio, los lanzadores ganan más que los bateadores (ajustando por el número total de juegos), obtuvimos un **p-valor = 0.0871**.  
+Esto indica que **no hay suficiente evidencia estadística** para afirmar que los lanzadores ganan más, por lo que la diferencia entre ambos grupos **no es significativa**.
 
 
 ```{r}
-esquisser(salarios_acumulados)
-```
+grid_pred <- expand.grid(
+  juegos_total = seq(min(salarios_acumulados$juegos_total, na.rm = TRUE),
+                     max(salarios_acumulados$juegos_total, na.rm = TRUE),
+                     length.out = 200),
+  tipo_jugador = c("Bateador", "Lanzador")
+)
 
+grid_pred$salario_predicho <- predict(modelo_salario_pos, newdata = grid_pred)
+
+
+ggplot(salarios_acumulados, aes(x = juegos_total, y = salario_total, color = tipo_jugador)) +
+  geom_point(alpha = 0.6) +
+  geom_line(data = grid_pred, aes(y = salario_predicho), linewidth = 1.2) +
+   scale_fill_manual(
+    values = c(salarios_acumulados$Bateador = "#C41C10",
+               salarios_acumulados$Lanzador = "#147AA5")
+  ) +
+  labs(
+    title = "Comparando nuestro modelos y nuestros datos",
+    x = "Juegos totales",
+    y = "Salario total",
+    color = "Tipo de jugador"
+  ) +
+  theme_minimal()
+
+```
 
 
 ## ¿Qué factores contribuyen a la inducción al Salón de la Fama?
