@@ -1302,10 +1302,48 @@ Por último, en esta gráfica observamos que los bateadores con un mayor número
 ## ¿Existe una diferencia significativa en las tasas de entrada al Salón de la Fama entre lanzadores y bateadores?
 
 
-
 ```{r}
-esquisser(filtroFamosos)
+numeroBat <- filtroFamosos %>%
+  filter(tipo_jugador == "Bateador") %>%
+  summarise(
+    total = n(),
+    saleccionado = sum(fue_selc == "Y"),
+    proporcion = saleccionado / total
+  )
+
+
+numeroBat
+
+
+numLanzador <- filtroFamosos %>%
+  filter(tipo_jugador == "Lanzador") %>%
+  summarise(
+    total = n(),
+    noselec = sum(fue_selc == "Y"),
+    proporcion = noselec / total
+  )
+
+numLanzador
 ```
+```{r}
+ggplot(limpios_fama) +
+  aes(x = tipo_jugador, fill = fue_selc) +
+  geom_bar() +
+  scale_fill_manual(values = c(N = "#CF2D21", Y = "#1A7EAE")) +
+  labs(title = "Bateadores vs Lanzadores") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 15L))
+
+```
+
+
+Para responder esta pregunta, utilizaremos los datos que ya hemos filtrado y procesado en el ejercicio anterior.
+
+Podemos observar que, en el caso de los bateadores, hay un total de **939 jugadores nominados**, de los cuales **211** lograron entrar al Salón de la Fama. Esto representa una proporción del **22.47%**.  
+En el caso de los lanzadores, se cuenta con **440 jugadores nominados**, de los cuales **74** fueron inducidos, lo que corresponde a una proporción del **16.81%**.
+
+Por lo tanto, podemos concluir que es más probable ser nominado y aceptado al Salón de la Fama si se es **bateador** que si se es **lanzador**.  
+Esto podría deberse a que se valora más la parte ofensiva del juego que la defensiva, ya que los bateadores suelen protagonizar las jugadas más espectaculares y llamativas —como los *home runs*—, las cuales generan mayor emoción en el público y atraen a los espectadores. En contraste, los lanzadores no suelen realizar jugadas tan vistosas, por lo que podrían ser percibidos como menos atractivos para la audiencia.
 
 
 
