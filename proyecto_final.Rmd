@@ -868,11 +868,6 @@ summary(salarios)
 ```
 
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Parte de Fernando ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
 ## ¿La asistencia a la universidad influye en el salario del primer año de un jugador?
 
 
@@ -1009,7 +1004,7 @@ De esta prueba de hipótesis podemos concluir que, en promedio, el promedio de b
 
 
 ```{r}
-plot(modelo_sal_est)
+#plot(modelo_sal_est)
 ```
 
 ```{r}
@@ -1428,23 +1423,74 @@ Sin embargo, lo que reduce la probabilidad de ser aceptado es el número de cand
 
 
 
-```{r}
-esquisser(limpios_fama)
-```
 
-
-```{r}
-esquisser(proporcion_decada)
-```
 
 ## ¿Qué se puede decir del tiempo en el que un jugador empieza su carrera hasta que se vuelve miembro del Salón de la Fama?
 
+```{r}
+head(limpios_fama)
+```
+
+```{r}
+filterNames <- nombres %>%
+  dplyr::select(playerID, debut) %>%
+  dplyr::mutate(debut = as.Date(debut, format = "%Y-%m-%d"),
+         debute_años = year(debut)) #seleccionar solo el año del debut
+
+```
+```{r}
+#Uniendo los datos
+union_fama <- left_join(filterNames, limpios_fama, by = "playerID") %>%
+  filter(!is.na(fue_selc)) %>%
+  dplyr::select(playerID, debute_años, fue_selc, año ) %>%
+  mutate(
+    difefencia = año - debute_años
+  )
+
+
+union_fama
+```
+
+
+```{r}
+union_fama %>%
+ filter(difefencia >= 10L & difefencia <= 120L) %>%
+ ggplot() +
+  aes(x = difefencia, fill = fue_selc) +
+  geom_histogram(bins = 30L) +
+  scale_fill_manual(values = c(N = "#CF2216", Y = "#158CA9")) +
+  scale_x_continuous(breaks = seq(10, 120, by = 10)) +  # <- más etiquetas en eje X
+  labs(
+    x = "Años de experiencia",
+    y = "Numero",
+    title = "Experiencia para el salon de la fama"
+  ) +
+  theme_minimal()
+
+
+```
+En esta gráfica podemos analizar a los candidatos que se postularon al Salón de la Fama.  
+Observamos que los jugadores con menos de 20 años de experiencia en la liga fueron descartados en su gran mayoría. En contraste, los que tenían entre **22 y 27 años de experiencia** fueron quienes tuvieron mayor probabilidad de ser aceptados.
+
+Esto podría deberse a que ese rango de años les da un margen adecuado para lograr buenas jugadas, destacar en su posición y posiblemente ayudar a su equipo a conseguir campeonatos.
+
+También se observa que los jugadores nominados más de **70 años** después de haber iniciado su carrera fueron, en su mayoría, rechazados. Esto podría explicarse por la presencia de candidatos más jóvenes, con estadísticas recientes y pertenecientes a equipos más actuales, que llaman más la atención que los jugadores de generaciones pasadas.
+
+Por lo tanto, conocer la **ventana de tiempo óptima** en la que un jugador es más probable que sea aceptado al Salón de la Fama, así como los **factores clave** que influyen en esa decisión, es esencial para entender cómo funciona el proceso de selección.
 
 
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------- Preguntas que --------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# ¿Cómo se relaciona el rendimiento en su primera temporada con la duración de su carrera?
 
+# ¿Las estadísticas de fielding se relacionan con la duración total de la carrera?
+
+# ¿Cuál es la probabilidad de que un jugador llegue a las Grandes Ligas según sus estadísticas universitarias?
+
+# ¿Existen grupos de jugadores con trayectorias profesionales similares según métricas de rendimiento?
+
+# ¿Cómo afecta el rendimiento de un jugador en sus mejores años a sus ganancias totales en la carrera?
