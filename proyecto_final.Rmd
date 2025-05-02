@@ -1158,17 +1158,7 @@ Sin embargo, como su carrera suele ser más corta, esto podría deberse a que la
 Además, dado que pocos jugadores pueden lanzar a gran velocidad, esta escasez podría encarecer la posición.
 
 
-```{r Referencia}
-head(bateo)
-head(escuelas)
-head(escuelasJugadores)
-head(field)
-head(nombres)
-head(pitcheo)
-head(salarios)
-head(salonFama)
 
-```
 
 ## ¿Qué factores contribuyen a la inducción al Salón de la Fama?
 
@@ -1349,7 +1339,108 @@ Esto podría deberse a que se valora más la parte ofensiva del juego que la def
 
 ## ¿El número de home runs aumenta las probabilidades de ingresar al Salón de la Fama?
 
+Como observamos en nuestro modelo de regresión logística, tener un mayor número de *home runs* no aumenta significativamente la probabilidad de entrar al Salón de la Fama, ya que no es uno de los factores más determinantes según el análisis estadístico.
+
+
+
+
+```{r}
+ggplot(limpios_fama) +
+  aes(x = HR, fill = fue_selc) +
+  geom_histogram(bins = 21L) +
+  scale_fill_manual(values = c(N = "#E32215", Y = "#1DB8EC")) +
+ labs(
+  x = "Número de HR",
+  y = "Número de jugadores",
+  title = "Número de HR vs si fueron seleccionados"
+) +
+theme_minimal()
+
+
+```
+
+En esta gráfica podemos corroborar que realizar un mayor número de **HR** no necesariamente aumenta las probabilidades de ser seleccionado para entrar al Salón de la Fama.  
+Observamos casos donde algunos jugadores hicieron más de **500** *home runs* y aun así no fueron inducidos, lo que sugiere que existen otros factores que los jueces consideran más importantes.
+
+
+
+
+
 ## ¿Los jugadores de ciertas décadas tienen más probabilidades de ser incluidos al Salón de la Fama?
+
+
+```{r}
+limpios_fama <- limpios_fama %>% #Haciendo un diltrado por decadas
+  mutate(decada = paste0(floor(año / 10) * 10, "s"))
+
+
+proporcion_decada <- limpios_fama %>%
+  group_by(decada) %>%
+  summarise(
+    total = n(),
+    seleccionados = sum(fue_selc == "Y"),
+    proporcion = seleccionados / total
+  )
+
+
+
+proporcion_decada
+```
+
+```{r}
+ggplot(proporcion_decada) +
+  aes(x = decada, y = proporcion) +
+  geom_col(fill = "#16539E") +
+  labs(
+    x = "Decadas",
+    y = "Proporcion",
+    title = "Proporcion de seleccion al salon de la fama"
+  ) +
+  ggthemes::theme_pander() +
+  theme(
+    axis.text.y = element_text(size = 13L),
+    axis.text.x = element_text(size = 15L),
+    legend.text = element_text(size = 12L),
+    legend.title = element_text(size = 20L)
+  )
+
+```
+
+Así es, en esta gráfica podemos observar cómo la proporción de selección al Salón de la Fama ha disminuido desde la década de los 70, cuando en esa decada en concreto más del **50%** de los jugadores nominados eran aceptados.  
+En contraste, en la década del **2020**, esta proporción ha caído a cerca del **10%**.
+
+
+
+```{r}
+ggplot(limpios_fama) +
+  aes(x = decada, fill = fue_selc) +
+  geom_bar() +
+  scale_fill_manual(values = c(N = "#F44132", Y = "#3695C1")) +
+  labs(title = "Décadas de selección al Salón de la Fama") +
+  theme_minimal()
+
+```
+
+En esta otra gráfica podemos observar que el número de jugadores que ingresaron al Salón de la Fama entre las décadas de **1940** y **2010** se ha mantenido relativamente estable, con entre **30** y **40** seleccionados por década.  
+Sin embargo, lo que reduce la probabilidad de ser aceptado es el número de candidatos postulados. Por ello, la década en la que fue más fácil ser seleccionado fue en los **70s** y en las décadas anteriores.
+
+
+
+
+
+```{r}
+esquisser(limpios_fama)
+```
+
+
+```{r}
+esquisser(proporcion_decada)
+```
+
+## ¿Qué se puede decir del tiempo en el que un jugador empieza su carrera hasta que se vuelve miembro del Salón de la Fama?
+
+
+
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
