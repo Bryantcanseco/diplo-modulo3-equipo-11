@@ -59,7 +59,8 @@ library(psych) # Libreria para hacer Factor de Analisis
 
 ```{r Data}
 
-setwd("C:/Users/ferna/Documents/Proyectos_Diplomado/diplo-modulo3-equipo-11/Data")
+#setwd("C:/Users/ferna/Documents/Proyectos_Diplomado/diplo-modulo3-equipo-11/Data")
+setwd("C:/Users/diego/Documents/Ingeniería_Ambiental/Diplomado/Modulo_3/Proyecto_M3/diplo-modulo3-equipo-11/Data")
 # Conexión a la base de datos
 conn <- dbConnect(SQLite(), "baseball.db")
 
@@ -119,7 +120,7 @@ No se detectaron duplicados importantes en playerID, y las tablas permiten anál
 
 ### Diccionario 
 
-Como no se proporciono un diccionario de que significaban las variables nosotros lo creamos investigando un poco del deporte: 
+Como no se proporcionó un diccionario del significado de las variables nosotros lo creamos investigando un poco del deporte: 
 
 
 
@@ -314,7 +315,7 @@ vis_miss(muestreo_bate)
 
 
 filtrado_muestreo_base <- muestreo_bate %>% 
-   select(CS, IBB, SF, GIDP)
+   dplyr::select(CS, IBB, SF, GIDP)
 
 vis_miss(filtrado_muestreo_base)
 ```
@@ -356,7 +357,7 @@ vis_miss(muestreo_field)
 
 
 filtrado_muestreo_base <- muestreo_field %>% 
-   select(GS, InnOuts, PB, SB,CS)
+   dplyr::select(GS, InnOuts, PB, SB,CS)
 
 
 vis_miss(filtrado_muestreo_base)
@@ -375,7 +376,7 @@ vis_dat(nombres)
 vis_miss(nombres)
 
 filtrado_muestreo_base <- nombres %>% 
-   select(-deathYear, -deathMonth, -deathDay, -birthYear, -birthMonth, -birthDay, -deathCountry, -deathState, -deathCity, -deathDate)
+   dplyr::select(-deathYear, -deathMonth, -deathDay, -birthYear, -birthMonth, -birthDay, -deathCountry, -deathState, -deathCity, -deathDate)
 
 
 vis_miss(filtrado_muestreo_base)
@@ -396,7 +397,7 @@ vis_dat(muestreo_pitcheo)
 vis_miss(muestreo_pitcheo)
 
 filtrado_muestreo_base <- muestreo_pitcheo %>% 
-   select(  IBB, SH, SF, GIDP)
+   dplyr::select(  IBB, SH, SF, GIDP)
 
 vis_miss(filtrado_muestreo_base)
 ```
@@ -425,7 +426,7 @@ vis_dat(salonFama)
 vis_miss(salonFama)
 
 filtrado_muestreo_base <- salonFama %>% 
-   select(ballots, needed, votes, needed_note)
+   dplyr::select(ballots, needed, votes, needed_note)
 
 
 vis_miss(filtrado_muestreo_base)
@@ -465,7 +466,7 @@ posicion_jugador <- field |>
   summarise(total_partidos = sum(G, na.rm = TRUE), .groups = "drop") |>
   group_by(playerID) |>
   slice_max(order_by = total_partidos, n = 1, with_ties = FALSE) |>
-  select(playerID, POS)
+  dplyr::select(playerID, POS)
 
 # Unimos la duración con la posición
 jugadores_duracion_pos <- carrera_jugadores |>
@@ -625,7 +626,7 @@ library(ggplot2)
 
 # 1. Unión de bateo con la liga (renombramos para evitar el conflicto)
 bateo_ligas <- bateo |>
-  inner_join(field |> select(playerID, lgID_field = lgID), by = "playerID") |>
+  inner_join(field |> dplyr::select(playerID, lgID_field = lgID), by = "playerID") |>
   filter(!is.na(lgID_field))  # Ahora sí usamos el nuevo nombre
 
 # 2. Promedio de bateo por jugador y liga
@@ -686,7 +687,7 @@ promedios_bateo <- bateo |>
 
 # Unimos con la tabla que contiene altura y peso
 bateo_fisico <- promedios_bateo |>
-  inner_join(nombres |> select(playerID, height, weight), by = "playerID") |>
+  inner_join(nombres |> dplyr::select(playerID, height, weight), by = "playerID") |>
   filter(!is.na(height), !is.na(weight))
 
 # Relación entre altura y promedio de bateo
